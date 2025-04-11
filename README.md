@@ -26,7 +26,7 @@ The entrypoint receives three parameters:
 ### Via Docker
 
 This is the easiest way, since you only need Docker installed to pull the prebuilt image
-from [this DockerHub repo](https://hub.docker.com/repository/docker/dravalico/wrapped-wappalyzer/general).This image
+from [this DockerHub repo](https://hub.docker.com/repository/docker/dravalico/wrapped-wappalyzer/general). This image
 uses [browsertime](https://hub.docker.com/r/sitespeedio/browsertime/) since it provide Chrome 135 with all its
 dependencies. Please note that it also downloads the ChromeDriver, as the default one is not updated.
 
@@ -38,13 +38,13 @@ docker run dravalico/wrapped-wappalyzer:1.0 --url example.com
 The [`parallel_visits.sh`](parallel_visits.sh) script provides and easy way to contact many domains
 using the GNU shell tool [`parallel`](https://www.gnu.org/software/parallel/). You need to specify the list of domains
 to be contacted (in the example `domains`), the file in which to save the results, which will be a JSONL (`out`), and
-the number of cores to be used.
+the number of cores to be used (here, 3).
 
 ```sh
 git clone https://github.com/dravalico/wrapped_wappalyzer
 cd wrapped_wappalyzer
 chmod +x parallel_visits.sh
-./parallel_visits.sh domains.txt out.jsonl 3
+./parallel_visits.sh domains out 3
 ```
 
 If you want to build and run your image by editing [this Dockerfile](Dockerfile), after the changes run the following
@@ -83,7 +83,7 @@ mv chromedriver-linux64/chromedriver /usr/local/bin/
 chmod +x /usr/local/bin/chromedriver
 ```
 
-Finally, to visit a URL just run
+Finally, since with this method there is no script to perform parallel visits, to visit a URL just run
 
 ```sh
 python main.py --url example.com
