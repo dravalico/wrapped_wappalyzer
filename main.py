@@ -2,16 +2,78 @@ import argparse
 import re
 import json
 import time
+import subprocess
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--url', help='import from file or enter a url', dest='url')
+parser.add_argument('--target', help='import from file or enter a target url or domain', dest='target')
 parser.add_argument('--timeout', help='timeout for WebDriver and page loading', dest='timeout', default=30, type=int)
 parser.add_argument('--attempts', help='number of attempts to contact a url', dest='attempts', default=2, type=int)
 args = parser.parse_args()
+
+
+def obtain_dns_information(target_domain):
+    record_types = ['A', 'AAAA', 'CNAME', 'NS', 'TXT']
+    dns_records = {'dns': {}}
+    for record_type in record_types:
+        try:
+            dns_response = subprocess.run(['dig', target_domain, record_type],
+                                          stdout=subprocess.PIPE,
+                                          stderr=subprocess.PIPE,
+                                          text=True,
+                                          check=True,
+                                          timeout=5)
+            dns_response = dns_response.stdout
+
+            status = None
+            for line in dns_response.splitlines():
+                if line.startswith(';; ->>HEADER<<-'):
+                    if 'status:' in line:
+                        status = line.split('status: ')[1].split(',')[0]
+            dns_records['dns'][record_type] = {'status': status, 'response': dns_response}
+        except subprocess.TimeoutExpired:
+            dns_records['dns'][record_type] = {'status': None, 'dns_response': None, 'error': 'Timeout expired'}
+        except Exception as e:
+            dns_records['dns'][record_type] = {'status': None, 'dns_response': None, 'error': str(e)}
+    return dns_records
+
+
+def run_curl(target_url, timeout):
+    try:
+        curl_result = subprocess.run(
+            ['curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', target_url],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=timeout,
+        )
+        return {'curl': {'exit_code': int(curl_result.returncode), 'http_code': int(curl_result.stdout.strip())}}
+    except subprocess.TimeoutExpired:
+        return {'curl': {'exit_code': -1, 'http_code': 0, 'error': 'Timeout expired'}}
+    except Exception as e:
+        return {'curl': {'exit_code': -1, 'http_code': 0, 'error': str(e)}}
+
+
+def process_url(target_url, timeout):
+    try:
+        driver = create_chrome_driver()
+        driver.set_page_load_timeout(timeout)
+
+        driver.get(target_url)
+        WebDriverWait(driver, timeout).until(lambda d: d.execute_script('return document.readyState') == 'complete')
+
+        time.sleep(5)
+
+        logs = driver.get_log('browser')
+        last_ext_log = next((e for e in reversed(logs) if 'chrome-extension' in e['message']), None)
+        raw_json_str = last_ext_log['message'].split('"[')[-1].rsplit(']"', 1)[0].replace("\\", '')
+
+        return target_url, json.loads(f'[{raw_json_str}]')
+    except Exception as e:
+        return target_url, str(e).split('\n')[0]
 
 
 def create_chrome_driver(max_retries=3):
@@ -37,40 +99,35 @@ def create_chrome_driver(max_retries=3):
     raise Exception('Failed to create chrome driver')
 
 
-def process_url(target_url, timeout):
-    try:
-        driver = create_chrome_driver()
-        driver.set_page_load_timeout(timeout)
-
-        driver.get(target_url)
-        WebDriverWait(driver, timeout).until(lambda d: d.execute_script('return document.readyState') == 'complete')
-
-        time.sleep(5)
-
-        logs = driver.get_log('browser')
-        last_ext_log = next((e for e in reversed(logs) if 'chrome-extension' in e['message']), None)
-        raw_json_str = last_ext_log['message'].split('"[')[-1].rsplit(']"', 1)[0].replace("\\", '')
-
-        return target_url, json.loads(f'[{raw_json_str}]')
-    except Exception as e:
-        return target_url, str(e).split('\n')[0]
-
-
 if __name__ == '__main__':
-    if not args.url:
+    if not args.target:
         parser.print_help()
         exit(1)
 
-    url = args.url.lower().strip()
-    if not re.match(r'^(http://|https://)', url):
-        url = 'https://' + url
-    if re.search(r'^https?://', url):
-        for i in range(args.attempts):
-            url, detections = process_url(url, timeout=args.timeout)
-            if isinstance(detections, list) or (i == args.attempts - 1):
-                print(json.dumps({'url': url, 'result': detections}))
-                break
-            else:
-                time.sleep(2)
+    target = args.target.lower().strip()
+    if re.match(r'^(http://|https://)', target):
+        url = target
+        domain = target.split('://')[-1]
     else:
-        print(json.dumps({'url': url, 'result': 'Neither a valid URL nor a file path'}))
+        url = 'https://' + target
+        domain = target
+
+    dns_data = obtain_dns_information(domain)
+    if dns_data['dns']['A']['status'] == 'NXDOMAIN':
+        print(json.dumps({'target': target, 'detections': []} | dns_data))
+        exit(0)
+
+    curl_data = run_curl(url, args.timeout)
+    if (curl_data['curl']['exit_code'] != 0 or
+            not str(curl_data['curl']['http_code']).startswith('3') or
+            not str(curl_data['curl']['http_code']).startswith('2')):
+        print(json.dumps({'target': target, 'detections': []} | dns_data | curl_data))
+        exit(0)
+
+    for i in range(args.attempts):
+        url, detections = process_url(url, args.timeout)
+        if isinstance(detections, list) or (i == args.attempts - 1):
+            print(json.dumps({'target': target, 'detections': detections} | dns_data | curl_data))
+            break
+        else:
+            time.sleep(1)
