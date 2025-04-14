@@ -71,9 +71,9 @@ def process_url(target_url, timeout):
         last_ext_log = next((e for e in reversed(logs) if 'chrome-extension' in e['message']), None)
         raw_json_str = last_ext_log['message'].split('"[')[-1].rsplit(']"', 1)[0].replace("\\", '')
 
-        return target_url, json.loads(f'[{raw_json_str}]')
+        return {'detections': json.loads(f'[{raw_json_str}]')}
     except Exception as e:
-        return target_url, str(e).split('\n')[0]
+        return {'error': str(e).split('\n')[0]}
 
 
 def create_chrome_driver(max_retries=3):
@@ -114,18 +114,18 @@ if __name__ == '__main__':
 
     dns_data = obtain_dns_information(domain)
     if dns_data['dns']['A']['status'] == 'NXDOMAIN':
-        print(json.dumps({'target': target, 'detections': []} | dns_data))
+        print(json.dumps({'target': target} | dns_data))
         exit(0)
 
     curl_data = run_curl(url, args.timeout)
     if curl_data['curl']['exit_code'] != 0 or not str(curl_data['curl']['http_code']).startswith(('2', '3')):
-        print(json.dumps({'target': target, 'detections': []} | dns_data | curl_data))
+        print(json.dumps({'target': target} | dns_data | curl_data))
         exit(0)
 
     for i in range(args.attempts):
-        url, detections = process_url(url, args.timeout)
-        if isinstance(detections, list) or (i == args.attempts - 1):
-            print(json.dumps({'target': target, 'detections': detections} | dns_data | curl_data))
+        result = process_url(url, args.timeout)
+        if 'error' not in result or (i == args.attempts - 1):
+            print(json.dumps({'target': target} | result | dns_data | curl_data))
             break
         else:
             time.sleep(1)
