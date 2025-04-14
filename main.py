@@ -35,9 +35,9 @@ def obtain_dns_information(target_domain):
                         status = line.split('status: ')[1].split(',')[0]
             dns_records['dns'][record_type] = {'status': status, 'response': dns_response}
         except subprocess.TimeoutExpired:
-            dns_records['dns'][record_type] = {'status': None, 'dns_response': None, 'error': 'Timeout expired'}
+            dns_records['dns'][record_type] = {'status': None, 'response': None, 'error': 'Timeout expired'}
         except Exception as e:
-            dns_records['dns'][record_type] = {'status': None, 'dns_response': None, 'error': str(e)}
+            dns_records['dns'][record_type] = {'status': None, 'response': None, 'error': str(e)}
     return dns_records
 
 
