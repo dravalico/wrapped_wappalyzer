@@ -118,9 +118,7 @@ if __name__ == '__main__':
         exit(0)
 
     curl_data = run_curl(url, args.timeout)
-    if (curl_data['curl']['exit_code'] != 0 or
-            not str(curl_data['curl']['http_code']).startswith('3') or
-            not str(curl_data['curl']['http_code']).startswith('2')):
+    if curl_data['curl']['exit_code'] != 0 or not str(curl_data['curl']['http_code']).startswith(('2', '3')):
         print(json.dumps({'target': target, 'detections': []} | dns_data | curl_data))
         exit(0)
 
