@@ -34,8 +34,8 @@ uses [browsertime](https://hub.docker.com/r/sitespeedio/browsertime/) since it p
 dependencies. Please note that it also downloads the ChromeDriver, as the default one is not updated.
 
 ```sh
-docker pull dravalico/wrapped-wappalyzer:1.0
-docker run dravalico/wrapped-wappalyzer:1.0 --target example.com
+docker pull dravalico/wrapped-wappalyzer:1.0.1
+docker run dravalico/wrapped-wappalyzer:1.0.1 --target example.com
 ```
 
 The [`parallel_visits.sh`](parallel_visits.sh) script provides and easy way to contact many targets using the GNU shell
