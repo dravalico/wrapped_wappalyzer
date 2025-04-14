@@ -12,16 +12,19 @@ analysis done through Wappalyzer, which in its original version offers no API.
 
 ## Prerequisites and usage
 
-wrapped_wappalyzer can be run in two different methods, i.e., by running `main.py` with Python or by using Docker.
-Either way, a single URL can be visited, and the technologies detected by Wappalyzer will be printed to `stdout`
-formatted as JSON.
+can be run in two different methods, i.e., by running `main.py` with Python or by using Docker.
+Either way, a single target (URL or domain) can be visited, and the technologies detected by Wappalyzer will be printed
+to `stdout` formatted as JSON. Additionally, it saves DNS information (A, AAAA, CNAME, NS and TXT) and if A record has
+NXDOMAIN status, the visit through Selenium is aborted. It also checks if the website is reachable using `curl`; it
+check the exit code and the http code and if there is an error or the http code is different from 2xx or 3xx, it saves
+data and quit.
 
 The entrypoint receives three parameters:
 
-1. `--url` the URL to contact, it is mandatory. If only one domain is specified, `https://` will be added in front
+1. `--target` the target to contact, it is mandatory. If only one domain is specified, `https://` will be added in front
 2. `--timeout` it is optional and, it is used to specify the maximum time to wait for the page to load, then the driver
    will be closed
-3. `--attempts` the maximum number of attempts to perform to contact a URL (optional)
+3. `--attempts` the maximum number of attempts to perform to contact the target (optional)
 
 ### Via Docker
 
@@ -32,26 +35,26 @@ dependencies. Please note that it also downloads the ChromeDriver, as the defaul
 
 ```sh
 docker pull dravalico/wrapped-wappalyzer:1.0
-docker run dravalico/wrapped-wappalyzer:1.0 --url example.com
+docker run dravalico/wrapped-wappalyzer:1.0 --target example.com
 ```
 
-The [`parallel_visits.sh`](parallel_visits.sh) script provides and easy way to contact many domains
-using the GNU shell tool [`parallel`](https://www.gnu.org/software/parallel/). You need to specify the list of domains
-to be contacted (in the example `domains`), the file in which to save the results, which will be a JSONL (`out`), and
-the number of cores to be used (here, 3).
+The [`parallel_visits.sh`](parallel_visits.sh) script provides and easy way to contact many targets using the GNU shell
+tool [`parallel`](https://www.gnu.org/software/parallel/). You need to specify the list of URLs or domains to be
+contacted (in the example `targets`), the file in which to save the results, which will be a JSONL (`out`), and the
+number of cores to be used (here, 3).
 
 ```sh
 git clone https://github.com/dravalico/wrapped_wappalyzer
 cd wrapped_wappalyzer
 chmod +x parallel_visits.sh
-./parallel_visits.sh domains out 3
+./parallel_visits.sh targets out 3
 ```
 
 If you want to build and run your image by editing [this Dockerfile](Dockerfile), after the changes run the following
 
 ```sh
 docker build -t wrapped-wappalyzer .
-docker run wrapped-wappalyzer --url example.com
+docker run wrapped-wappalyzer --target example.com
 ```
 
 > [!CAUTION]
@@ -83,10 +86,10 @@ mv chromedriver-linux64/chromedriver /usr/local/bin/
 chmod +x /usr/local/bin/chromedriver
 ```
 
-Finally, since with this method there is no script to perform parallel visits, to visit a URL just run
+Finally, since with this method there is no script to perform parallel visits, to visit a URL or domain just run
 
 ```sh
-python main.py --url example.com
+python main.py --target example.com
 ```
 
 Note that the Chrome browser will be opened in headless mode, meaning that you won't see the page open and close.
