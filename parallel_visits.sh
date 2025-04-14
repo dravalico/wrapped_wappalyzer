@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DOMAINSFILE=$1
+TARGETSFILE=$1
 OUTFILE=$2
 PROCESSES=$3
 
@@ -9,4 +9,4 @@ if [ $# -ne 3 ]; then
     exit 1
 fi
 
-cat $DOMAINSFILE | parallel -j $PROCESSES --progress "docker run --rm --cpus=1 --memory=3g --platform=linux/amd64 dravalico/wrapped-wappalyzer:1.0 --url {}" > $OUTFILE
+cat $TARGETSFILE | parallel -j $PROCESSES --progress "docker run --rm --cpus=1 --memory=3g --platform=linux/amd64 dravalico/wrapped-wappalyzer:1.0 --target {}" > $OUTFILE
