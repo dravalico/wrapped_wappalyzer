@@ -1,8 +1,8 @@
 import argparse
 import re
 import json
-import time
 import subprocess
+import time
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -18,14 +18,16 @@ args = parser.parse_args()
 def obtain_dns_information(target_domain):
     record_types = ['A', 'AAAA', 'CNAME', 'NS', 'TXT']
     dns_records = {'dns': {}}
+    times = {}
     for record_type in record_types:
+        start_time = time.perf_counter()
         try:
             dns_response = subprocess.run(['dig', target_domain, record_type],
                                           stdout=subprocess.PIPE,
                                           stderr=subprocess.PIPE,
                                           text=True,
                                           check=True,
-                                          timeout=5)
+                                          timeout=10)
             dns_response = dns_response.stdout
 
             status = None
@@ -33,15 +35,22 @@ def obtain_dns_information(target_domain):
                 if line.startswith(';; ->>HEADER<<-'):
                     if 'status:' in line:
                         status = line.split('status: ')[1].split(',')[0]
-            dns_records['dns'][record_type] = {'status': status, 'response': dns_response}
+            dns_records['dns'][record_type] = {'status': status, 'response': dns_response, 'error': None}
         except subprocess.TimeoutExpired:
-            dns_records['dns'][record_type] = {'status': None, 'response': None, 'error': 'Timeout expired'}
+            dns_records['dns'][record_type] = {'error': 'Timeout expired'}
         except Exception as e:
-            dns_records['dns'][record_type] = {'status': None, 'response': None, 'error': str(e)}
+            dns_records['dns'][record_type] = {'error': str(e)}
+        finally:
+            end_time = time.perf_counter()
+            times[record_type] = round((end_time - start_time) * 1000, 3)
+    for record_type in record_types:
+        dns_records['dns'][record_type]['time'] = times[record_type]
     return dns_records
 
 
 def run_curl(target_url, timeout):
+    curl_print = {'curl': {}}
+    start_time = time.perf_counter()
     try:
         curl_result = subprocess.run(
             ['curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', target_url],
@@ -50,14 +59,20 @@ def run_curl(target_url, timeout):
             text=True,
             timeout=timeout,
         )
-        return {'curl': {'exit_code': int(curl_result.returncode), 'http_code': int(curl_result.stdout.strip())}}
+        curl_print['curl'] = {'exit_code': int(curl_result.returncode), 'http_code': int(curl_result.stdout.strip())}
     except subprocess.TimeoutExpired:
-        return {'curl': {'exit_code': -1, 'http_code': 0, 'error': 'Timeout expired'}}
+        curl_print['curl'] = {'exit_code': -1, 'error': 'Timeout expired'}
     except Exception as e:
-        return {'curl': {'exit_code': -1, 'http_code': 0, 'error': str(e)}}
+        curl_print['curl'] = {'exit_code': -1, 'error': str(e)}
+    finally:
+        end_time = time.perf_counter()
+        curl_print['curl']['time'] = round((end_time - start_time) * 1000, 3)
+    return curl_print
 
 
 def process_url(target_url, timeout):
+    detections = {}
+    start_time = time.perf_counter()
     try:
         driver = create_chrome_driver()
         driver.set_page_load_timeout(timeout)
@@ -71,9 +86,13 @@ def process_url(target_url, timeout):
         last_ext_log = next((e for e in reversed(logs) if 'chrome-extension' in e['message']), None)
         raw_json_str = last_ext_log['message'].split('"[')[-1].rsplit(']"', 1)[0].replace("\\", '')
 
-        return {'detections': json.loads(f'[{raw_json_str}]')}
+        detections['detections'] = json.loads(f'[{raw_json_str}]')
     except Exception as e:
-        return {'error': str(e).split('\n')[0]}
+        detections['error'] = str(e).split('\n')[0]
+    finally:
+        end_time = time.perf_counter()
+        detections['time'] = round((end_time - start_time) * 1000, 3)
+    return detections
 
 
 def create_chrome_driver(max_retries=3):
@@ -100,6 +119,7 @@ def create_chrome_driver(max_retries=3):
 
 
 if __name__ == '__main__':
+
     if not args.target:
         parser.print_help()
         exit(1)
@@ -118,7 +138,7 @@ if __name__ == '__main__':
         exit(0)
 
     curl_data = run_curl(url, args.timeout)
-    if curl_data['curl']['exit_code'] != 0 or not str(curl_data['curl']['http_code']).startswith(('2', '3')):
+    if curl_data['curl']['exit_code'] != 0 or not str(curl_data['curl'].get('http_code', '')).startswith(('2', '3')):
         print(json.dumps({'target': target} | dns_data | curl_data))
         exit(0)
 
