@@ -1,4 +1,4 @@
-FROM sitespeedio/browsertime:latest
+FROM sitespeedio/browsertime:24.5.2
 
 RUN wget https://storage.googleapis.com/chrome-for-testing-public/133.0.6943.53/linux64/chromedriver-linux64.zip && \
     unzip chromedriver-linux64.zip && \
