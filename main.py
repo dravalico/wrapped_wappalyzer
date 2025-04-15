@@ -14,6 +14,7 @@ parser.add_argument('--timeout', help='timeout for WebDriver and page loading', 
 parser.add_argument('--attempts', help='number of attempts to contact a url', dest='attempts', default=2, type=int)
 args = parser.parse_args()
 
+USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36'
 
 def obtain_dns_information(target_domain):
     record_types = ['A', 'AAAA', 'CNAME', 'NS', 'TXT']
@@ -53,7 +54,7 @@ def run_curl(target_url, timeout):
     start_time = time.perf_counter()
     try:
         curl_result = subprocess.run(
-            ['curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', target_url],
+            ['curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', '-H', f'User-Agent: {USER_AGENT}', target_url],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -104,8 +105,7 @@ def create_chrome_driver(max_retries=3):
             options.add_argument('--disable-dev-shm-usage')
             options.add_argument('--disable-gpu')
             options.add_argument('--blink-settings=imagesEnabled=false')
-            options.add_argument(
-                'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
+            options.add_argument(f'user-agent={USER_AGENT}')
 
             options.add_extension('wappalyzer-chrome.crx')
             options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
