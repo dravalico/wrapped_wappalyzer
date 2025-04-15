@@ -9,4 +9,4 @@ if [ $# -ne 3 ]; then
     exit 1
 fi
 
-cat $TARGETSFILE | parallel -j $PROCESSES --progress "docker run --rm --cpus=1 --memory=3g --platform=linux/amd64 dravalico/wrapped-wappalyzer:1.0 --target {}" > $OUTFILE
+cat $TARGETSFILE | parallel -j $PROCESSES --progress "docker run --rm --cpus=1 --memory=3g --platform=linux/amd64 dravalico/wrapped-wappalyzer:1.0.2 --target {}" > $OUTFILE
