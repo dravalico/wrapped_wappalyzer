@@ -135,7 +135,7 @@ if __name__ == '__main__':
         domain = target
 
     dns_data = obtain_dns_information(domain)
-    if dns_data['dns']['A']['status'] == 'NXDOMAIN':
+    if dns_data['dns']['A'].get('status') == 'NXDOMAIN':
         print(json.dumps({'target': target} | dns_data))
         exit(0)
 
