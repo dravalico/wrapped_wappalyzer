@@ -16,6 +16,7 @@ args = parser.parse_args()
 
 USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36'
 
+
 def obtain_dns_information(target_domain):
     record_types = ['A', 'AAAA', 'CNAME', 'NS', 'TXT']
     dns_records = {'dns': {}}
@@ -85,9 +86,11 @@ def process_url(target_url, timeout):
 
         logs = driver.get_log('browser')
         last_ext_log = next((e for e in reversed(logs) if 'chrome-extension' in e['message']), None)
-        raw_json_str = last_ext_log['message'].split('"[')[-1].rsplit(']"', 1)[0].replace("\\", '')
-
-        detections['detections'] = json.loads(f'[{raw_json_str}]')
+        if last_ext_log:
+            raw_json_str = last_ext_log['message'].split('"[')[-1].rsplit(']"', 1)[0].replace("\\", '')
+            detections['detections'] = json.loads(f'[{raw_json_str}]')
+        else:
+            detections['detections'] = []
     except Exception as e:
         detections['error'] = str(e).split('\n')[0]
     finally:
@@ -119,7 +122,6 @@ def create_chrome_driver(max_retries=3):
 
 
 if __name__ == '__main__':
-
     if not args.target:
         parser.print_help()
         exit(1)
