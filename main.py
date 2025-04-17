@@ -126,7 +126,7 @@ if __name__ == '__main__':
         parser.print_help()
         exit(1)
 
-    target = args.target.lower().strip()
+    target = args.target.strip()
     if re.match(r'^(http://|https://)', target):
         url = target
         domain = target.split('://')[-1]
